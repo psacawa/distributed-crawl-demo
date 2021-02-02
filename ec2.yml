@@ -1,0 +1,39 @@
+---
+- hosts: localhost
+  gather_facts: false
+  module_defaults:
+    amazon.aws.ec2:
+      instance_type: t2.micro
+      wait: true
+      region: us-east-2
+      image: ami-01aab85a5e4a5a0fe
+  tasks:
+    - ec2:
+        count_tag:
+          Name: crawler
+        instance_tags:
+          Name: crawler
+        exact_count: 2
+      register: ec2
+    - debug: var=ec2
+    - add_host:
+        hostname: "{{ item.public_ip }}"
+        group: crawlers
+      loop: "{{ ec2.instances }}"
+    - ec2:
+        count_tag:
+          Name: redis
+        instance_tags:
+          Name: redis
+        exact_count: 1
+      register: ec2
+    - add_host:
+        hostname: "{{ item.public_ip }}"
+        group: redis
+      loop: "{{ ec2.instances }}"
+
+- hosts: redis
+  tasks:
+    - apt: name=redis status=present update_cache=true 
+    - service: name=redis state=started
+
